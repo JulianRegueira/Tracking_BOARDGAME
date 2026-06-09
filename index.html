@@ -18,30 +18,63 @@
           <p class="eyebrow">Juego de Mesa</p>
           <h1>Tracker de Comandante</h1>
         </div>
-        <button class="ghost-button" id="resetAllBtn" type="button" aria-label="Reiniciar todo">↺</button>
+        <button class="ghost-button" id="resetAllBtn" type="button" aria-label="Reiniciar partida">↺</button>
       </div>
 
-      <label class="name-label" for="playerName">Nombre del jugador</label>
-      <input id="playerName" class="name-input" maxlength="24" placeholder="Escribe tu nombre" autocomplete="off" />
+      <button class="install-button" id="installBtn" type="button">
+        <span class="install-icon">⬇</span>
+        <span>Instalar app</span>
+      </button>
 
-      <div class="vital-orb" aria-live="polite">
-        <span class="orb-label">VIDA</span>
-        <strong id="lifeValue">30</strong>
-      </div>
+      <section id="setupView" class="setup-view">
+        <label class="name-label" for="playerNameSetup">Nombre del jugador</label>
+        <input id="playerNameSetup" class="name-input" maxlength="24" placeholder="Escribe tu nombre" autocomplete="off" />
 
-      <div class="main-controls" aria-label="Controles de vida">
-        <button type="button" data-target="life" data-delta="-5">-5</button>
-        <button type="button" data-target="life" data-delta="-1">-1</button>
-        <button type="button" data-target="life" data-delta="1">+1</button>
-        <button type="button" data-target="life" data-delta="5">+5</button>
-      </div>
+        <div class="section-title">
+          <span>Selecciona tu comandante</span>
+          <small>Quedará bloqueado al comenzar</small>
+        </div>
+
+        <div id="commanderList" class="commander-list" aria-label="Lista de comandantes"></div>
+
+        <button class="start-button" id="startGameBtn" type="button" disabled>
+          Comenzar partida
+        </button>
+      </section>
+
+      <section id="gameView" class="game-view hidden">
+        <div class="player-banner">
+          <div>
+            <span id="playerNameDisplay">Jugador</span>
+            <strong id="commanderNameDisplay">Comandante</strong>
+          </div>
+          <div class="locked-pill">Bloqueado</div>
+        </div>
+
+        <div class="base-stats">
+          <span>Base</span>
+          <strong id="baseStatsDisplay">VIDA 0 · ATQ 0 · DEF 0</strong>
+        </div>
+
+        <div class="vital-orb" aria-live="polite">
+          <span class="orb-label">VIDA</span>
+          <strong id="lifeValue">30</strong>
+        </div>
+
+        <div class="main-controls" aria-label="Controles de vida">
+          <button type="button" data-target="life" data-delta="-5">-5</button>
+          <button type="button" data-target="life" data-delta="-1">-1</button>
+          <button type="button" data-target="life" data-delta="1">+1</button>
+          <button type="button" data-target="life" data-delta="5">+5</button>
+        </div>
+      </section>
     </section>
 
-    <section class="stat-grid">
+    <section id="statGrid" class="stat-grid hidden">
       <article class="stat-card attack-card">
         <div class="stat-header">
           <span>ATAQUE</span>
-          <button type="button" class="small-reset" data-reset="attack">Reset</button>
+          <button type="button" class="small-reset" data-reset-base="attack">Base</button>
         </div>
         <strong id="attackValue">0</strong>
         <div class="stepper">
@@ -53,7 +86,7 @@
       <article class="stat-card defense-card">
         <div class="stat-header">
           <span>DEFENSA</span>
-          <button type="button" class="small-reset" data-reset="defense">Reset</button>
+          <button type="button" class="small-reset" data-reset-base="defense">Base</button>
         </div>
         <strong id="defenseValue">0</strong>
         <div class="stepper">
@@ -63,20 +96,20 @@
       </article>
     </section>
 
-    <section class="quick-actions">
-      <button type="button" id="resetCombatBtn">Resetear ATQ/DEF</button>
-      <button type="button" id="newGameBtn">Nueva partida</button>
+    <section id="quickActions" class="quick-actions hidden">
+      <button type="button" id="resetCombatBtn">ATQ/DEF base</button>
+      <button type="button" id="newGameBtn">Reiniciar partida</button>
     </section>
 
-    <footer>
+    <footer id="footerInfo">
       <span>Guardado automático en este celular</span>
     </footer>
   </main>
 
   <dialog id="confirmDialog">
     <form method="dialog">
-      <h2>Nueva partida</h2>
-      <p>Esto reinicia vida, ataque y defensa. El nombre del jugador se mantiene.</p>
+      <h2>Reiniciar partida</h2>
+      <p>Esto devuelve vida, ataque y defensa a los valores base de tu comandante. El comandante seguirá bloqueado.</p>
       <div class="dialog-actions">
         <button value="cancel" type="submit">Cancelar</button>
         <button value="confirm" class="danger" type="submit">Reiniciar</button>
@@ -84,6 +117,30 @@
     </form>
   </dialog>
 
+  <dialog id="wipeDialog">
+    <form method="dialog">
+      <h2>Borrar datos</h2>
+      <p>Esto borra el jugador actual y vuelve a la selección de comandante. Usalo sólo cuando termina la partida o cuando quieras preparar otra sesión.</p>
+      <div class="dialog-actions">
+        <button value="cancel" type="submit">Cancelar</button>
+        <button value="confirm" class="danger" type="submit">Borrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="installHelpDialog">
+    <form method="dialog">
+      <h2>Instalar app</h2>
+      <p id="installHelpText">
+        Si tu navegador no muestra la instalación automática, abrí el menú del navegador y elegí “Agregar a pantalla principal” o “Instalar app”.
+      </p>
+      <div class="dialog-actions single">
+        <button value="ok" type="submit">Entendido</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="commanders.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -1,8 +1,9 @@
-const CACHE_NAME = "comandantes-individual-v2";
+const CACHE_NAME = "comandantes-individual-v4-commanders";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./commanders.js",
   "./app.js",
   "./manifest.json",
   "./icons/icon-192.png",

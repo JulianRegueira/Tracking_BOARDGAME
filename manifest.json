@@ -1,8 +1,9 @@
 {
   "name": "Tracker de Comandante",
   "short_name": "Comandante",
-  "description": "Tracker individual de vida, ataque y defensa para juego de mesa.",
+  "description": "Tracker individual con selección bloqueada de comandante, vida, ataque y defensa.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0c0910",
   "theme_color": "#141019",
