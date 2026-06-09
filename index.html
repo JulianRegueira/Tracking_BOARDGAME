@@ -3,125 +3,87 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#151018" />
-  <title>Tracker de Comandantes</title>
-  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#141019" />
+  <title>Tracker de Comandante</title>
+  <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="app-header">
-    <div>
-      <p class="eyebrow">Juego de Mesa</p>
-      <h1>Tracker de Comandantes</h1>
-    </div>
-    <button id="btn-install" class="ghost hidden" type="button">Instalar</button>
-  </header>
-
   <main class="app-shell">
-    <section class="panel setup-panel" aria-labelledby="setup-title">
-      <div class="panel-title-row">
+    <section class="hero-card">
+      <div class="top-bar">
         <div>
-          <p class="eyebrow">Configuración</p>
-          <h2 id="setup-title">Preparar partida</h2>
+          <p class="eyebrow">Juego de Mesa</p>
+          <h1>Tracker de Comandante</h1>
         </div>
-        <span id="save-status" class="save-status">Guardado local</span>
+        <button class="ghost-button" id="resetAllBtn" type="button" aria-label="Reiniciar todo">↺</button>
       </div>
 
-      <div class="setup-grid">
-        <label>
-          Vida inicial por defecto
-          <input id="default-life" type="number" inputmode="numeric" min="1" max="999" value="20" />
-        </label>
-        <label>
-          Nombre del nuevo jugador
-          <input id="new-player-name" type="text" maxlength="24" placeholder="Ej: Julián" />
-        </label>
+      <label class="name-label" for="playerName">Nombre del jugador</label>
+      <input id="playerName" class="name-input" maxlength="24" placeholder="Escribe tu nombre" autocomplete="off" />
+
+      <div class="vital-orb" aria-live="polite">
+        <span class="orb-label">VIDA</span>
+        <strong id="lifeValue">30</strong>
       </div>
 
-      <div class="actions-row">
-        <button id="add-player" class="primary" type="button">Agregar jugador</button>
-        <button id="reset-temp" class="secondary" type="button">Reset ATQ/DEF</button>
-        <button id="new-game" class="danger" type="button">Nueva partida</button>
+      <div class="main-controls" aria-label="Controles de vida">
+        <button type="button" data-target="life" data-delta="-5">-5</button>
+        <button type="button" data-target="life" data-delta="-1">-1</button>
+        <button type="button" data-target="life" data-delta="1">+1</button>
+        <button type="button" data-target="life" data-delta="5">+5</button>
       </div>
-
-      <details class="export-box">
-        <summary>Exportar / importar partida</summary>
-        <p>Útil para guardar una copia o pasar la partida a otro celular.</p>
-        <textarea id="state-json" spellcheck="false" placeholder="Aquí aparece el JSON de la partida"></textarea>
-        <div class="actions-row compact">
-          <button id="export-state" class="secondary" type="button">Exportar</button>
-          <button id="import-state" class="secondary" type="button">Importar</button>
-        </div>
-      </details>
     </section>
 
-    <section class="players-section" aria-label="Jugadores">
-      <div id="empty-state" class="empty-state">
-        <h2>Agregá jugadores para empezar</h2>
-        <p>La app permite trackear vida, ataque y defensa de cada comandante. Todo se guarda automáticamente en este dispositivo.</p>
-      </div>
-      <div id="players-grid" class="players-grid"></div>
+    <section class="stat-grid">
+      <article class="stat-card attack-card">
+        <div class="stat-header">
+          <span>ATAQUE</span>
+          <button type="button" class="small-reset" data-reset="attack">Reset</button>
+        </div>
+        <strong id="attackValue">0</strong>
+        <div class="stepper">
+          <button type="button" data-target="attack" data-delta="-1">−</button>
+          <button type="button" data-target="attack" data-delta="1">+</button>
+        </div>
+      </article>
+
+      <article class="stat-card defense-card">
+        <div class="stat-header">
+          <span>DEFENSA</span>
+          <button type="button" class="small-reset" data-reset="defense">Reset</button>
+        </div>
+        <strong id="defenseValue">0</strong>
+        <div class="stepper">
+          <button type="button" data-target="defense" data-delta="-1">−</button>
+          <button type="button" data-target="defense" data-delta="1">+</button>
+        </div>
+      </article>
     </section>
+
+    <section class="quick-actions">
+      <button type="button" id="resetCombatBtn">Resetear ATQ/DEF</button>
+      <button type="button" id="newGameBtn">Nueva partida</button>
+    </section>
+
+    <footer>
+      <span>Guardado automático en este celular</span>
+    </footer>
   </main>
 
-  <footer class="app-footer">
-    <span>Modo mesa · 2 a 8 jugadores</span>
-    <span>Funciona offline luego de abrirla una vez</span>
-  </footer>
-
-  <template id="player-card-template">
-    <article class="player-card">
-      <div class="card-top">
-        <div class="player-name-wrap">
-          <input class="player-name" type="text" maxlength="24" aria-label="Nombre del jugador" />
-          <input class="commander-name" type="text" maxlength="32" placeholder="Comandante" aria-label="Nombre del comandante" />
-        </div>
-        <button class="remove-player icon-btn" type="button" aria-label="Eliminar jugador">×</button>
+  <dialog id="confirmDialog">
+    <form method="dialog">
+      <h2>Nueva partida</h2>
+      <p>Esto reinicia vida, ataque y defensa. El nombre del jugador se mantiene.</p>
+      <div class="dialog-actions">
+        <button value="cancel" type="submit">Cancelar</button>
+        <button value="confirm" class="danger" type="submit">Reiniciar</button>
       </div>
+    </form>
+  </dialog>
 
-      <div class="main-stat life-stat">
-        <span>Vida</span>
-        <strong class="life-value">20</strong>
-        <div class="big-controls">
-          <button class="minus-life" type="button">−</button>
-          <button class="plus-life" type="button">+</button>
-        </div>
-      </div>
-
-      <div class="stats-row">
-        <div class="stat-box">
-          <span>Ataque</span>
-          <strong class="attack-value">0</strong>
-          <div class="mini-controls">
-            <button class="minus-attack" type="button">−</button>
-            <button class="plus-attack" type="button">+</button>
-          </div>
-        </div>
-        <div class="stat-box">
-          <span>Defensa</span>
-          <strong class="defense-value">0</strong>
-          <div class="mini-controls">
-            <button class="minus-defense" type="button">−</button>
-            <button class="plus-defense" type="button">+</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="quick-life">
-        <button data-damage="1" type="button">−1</button>
-        <button data-damage="3" type="button">−3</button>
-        <button data-damage="5" type="button">−5</button>
-        <button data-heal="5" type="button">+5</button>
-      </div>
-
-      <label class="notes-label">
-        Notas / estados
-        <textarea class="notes" maxlength="180" placeholder="Ej: maldito, aturdido, protegido..."></textarea>
-      </label>
-    </article>
-  </template>
-
-  <script src="app.js" type="module"></script>
+  <script src="app.js"></script>
 </body>
 </html>

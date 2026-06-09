@@ -1,11 +1,12 @@
 {
-  "name": "Tracker de Comandantes",
-  "short_name": "Comandantes",
-  "description": "Tracker de vida, ataque y defensa para el juego de mesa de comandantes.",
+  "name": "Tracker de Comandante",
+  "short_name": "Comandante",
+  "description": "Tracker individual de vida, ataque y defensa para juego de mesa.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#100d12",
-  "theme_color": "#151018",
+  "background_color": "#0c0910",
+  "theme_color": "#141019",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "icons/icon-192.png",
