@@ -18,7 +18,7 @@ const COMMANDERS = [
     name: "BRAKKA",
     life: 24,
     attack: 4,
-    defense: 2,
+    defense: 1,
     color: "red"
   },
   {
@@ -69,7 +69,7 @@ const COMMANDERS = [
     life: 24,
     attack: 2,
     defense: 2,
-    color: "withe"
+    color: "white"
   },
 
   {
