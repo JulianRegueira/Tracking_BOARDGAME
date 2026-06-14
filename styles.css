@@ -895,3 +895,124 @@ dialog p {
     width: 100%;
   }
 }
+
+.global-event-card {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.24);
+  border: 1px solid rgba(243, 201, 105, 0.22);
+}
+
+.global-event-card label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 1000;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.global-event-card select {
+  width: 100%;
+  border: 1px solid rgba(243, 201, 105, 0.28);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.38);
+  color: var(--text);
+  padding: 13px 14px;
+  outline: none;
+  font-weight: 900;
+}
+
+.global-event-info {
+  margin-top: 10px;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  font-weight: 1000;
+  text-align: center;
+  color: rgba(255, 248, 234, 0.9);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.global-event-info.red {
+  color: #ffd9d6;
+  background: rgba(228, 91, 79, 0.16);
+  border-color: rgba(228, 91, 79, 0.38);
+}
+
+.global-event-info.white {
+  color: #2a1b24;
+  background: rgba(255, 248, 234, 0.86);
+  border-color: rgba(255, 248, 234, 0.55);
+}
+
+.global-event-info.neutral {
+  color: var(--muted);
+}
+
+.death-banner {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 24px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top, rgba(228, 91, 79, 0.24), transparent 12rem),
+    rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(228, 91, 79, 0.42);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
+}
+
+.death-skull {
+  font-size: 4.2rem;
+  line-height: 1;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+}
+
+.death-banner strong {
+  display: block;
+  font-family: Cinzel, Georgia, serif;
+  color: #ffb3ad;
+  font-size: 1.25rem;
+}
+
+.death-banner span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.death-video {
+  width: 100%;
+  max-height: 260px;
+  margin-top: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: black;
+}
+
+.player-card.dead {
+  border-color: rgba(228, 91, 79, 0.55);
+  background: rgba(228, 91, 79, 0.10);
+}
+
+.skull-pill {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(228, 91, 79, 0.24);
+  border: 1px solid rgba(228, 91, 79, 0.44);
+  color: #ffd9d6;
+  font-size: 1rem;
+  font-weight: 1000;
+}
+
+.commander-option[data-color="yellow"] .commander-medal {
+  background: #f3c969;
+  color: #251723;
+}

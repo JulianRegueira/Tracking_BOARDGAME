@@ -88,6 +88,20 @@
           <button id="copyCodeBtnGame" type="button">Copiar</button>
         </div>
 
+        <div class="global-event-card">
+          <label for="globalEventSelect">Evento Global</label>
+
+          <select id="globalEventSelect">
+            <option value="none">NO INFLUYE EN ESTADÍSTICAS</option>
+            <option value="war_sparks">GUERRA DE CHISPAS · +1 ATAQUE</option>
+            <option value="dawn_wall">MURO DEL ALBA · +1 DEFENSA</option>
+          </select>
+
+          <div id="globalEventInfo" class="global-event-info">
+            Sin evento activo
+          </div>
+        </div>
+
         <div class="player-banner">
           <div>
             <span id="playerNameDisplay">Jugador</span>
@@ -111,6 +125,21 @@
           <button type="button" data-target="life" data-delta="-1">-1</button>
           <button type="button" data-target="life" data-delta="1">+1</button>
           <button type="button" data-target="life" data-delta="5">+5</button>
+        </div>
+
+        <div id="deathBanner" class="death-banner hidden">
+          <div class="death-skull">☠️</div>
+          <strong>¡Comandante derrotado!</strong>
+          <span>Tu vida llegó a 0.</span>
+          <video
+          id="deathVideo"
+          class="death-video"
+          src="videos/JUANCHI.mp4"
+          controls
+          muted
+          loop
+          playsinline
+        ></video>
         </div>
       </section>
     </section>
@@ -157,10 +186,6 @@
       </div>
       <div id="playersList" class="players-list"></div>
     </section>
-
-    <footer id="footerInfo">
-      <span>Sincronización en vivo con código de sala</span>
-    </footer>
   </main>
 
   <dialog id="confirmDialog">

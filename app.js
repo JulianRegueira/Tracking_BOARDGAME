@@ -17,11 +17,40 @@ import { firebaseConfig, isFirebaseConfigured } from "./firebase-config.js";
 const ROOM_KEY = "commander-tracker-current-room-v5";
 const NAME_KEY = "commander-tracker-player-name-v5";
 
+const GLOBAL_EVENTS = {
+  none: {
+    id: "none",
+    name: "NO INFLUYE EN ESTADÍSTICAS",
+    description: "No modifica ataque ni defensa.",
+    attackBonus: 0,
+    defenseBonus: 0,
+    color: "neutral"
+  },
+
+  war_sparks: {
+    id: "war_sparks",
+    name: "GUERRA DE CHISPAS",
+    description: "+1 de ataque para todos los jugadores.",
+    attackBonus: 1,
+    defenseBonus: 0,
+    color: "red"
+  },
+
+  dawn_wall: {
+    id: "dawn_wall",
+    name: "MURO DEL ALBA",
+    description: "+1 de defensa para todos los jugadores.",
+    attackBonus: 0,
+    defenseBonus: 1,
+    color: "white"
+  }
+};
+
 let app = null;
 let db = null;
 let auth = null;
 let uid = null;
-
+let wasOwnDead = false;
 let currentRoomCode = localStorage.getItem(ROOM_KEY) || "";
 let currentGame = null;
 let selectedCommanderId = null;
@@ -78,7 +107,12 @@ const els = {
   installHelpDialog: document.querySelector("#installHelpDialog"),
   installHelpText: document.querySelector("#installHelpText"),
 
-  toast: document.querySelector("#toast")
+  toast: document.querySelector("#toast"),
+  globalEventSelect: document.querySelector("#globalEventSelect"),
+  globalEventInfo: document.querySelector("#globalEventInfo"),
+
+  deathBanner: document.querySelector("#deathBanner"),
+  deathVideo: document.querySelector("#deathVideo")
 };
 
 function showOnly(viewName) {
@@ -177,6 +211,72 @@ function playerBaseFromCommander(commander) {
     baseAttack: commander.attack,
     baseDefense: commander.defense
   };
+}
+
+function getActiveGlobalEvent() {
+  const eventId = currentGame?.meta?.globalEvent || "none";
+  return GLOBAL_EVENTS[eventId] || GLOBAL_EVENTS.none;
+}
+
+function getEffectiveAttack(player) {
+  const globalEvent = getActiveGlobalEvent();
+  return Number(player.attack || 0) + Number(globalEvent.attackBonus || 0);
+}
+
+function getEffectiveDefense(player) {
+  const globalEvent = getActiveGlobalEvent();
+  return Number(player.defense || 0) + Number(globalEvent.defenseBonus || 0);
+}
+
+function renderGlobalEvent() {
+  const globalEvent = getActiveGlobalEvent();
+
+  els.globalEventSelect.value = globalEvent.id;
+
+  els.globalEventInfo.className = `global-event-info ${globalEvent.color}`;
+  els.globalEventInfo.textContent = `${globalEvent.name} · ${globalEvent.description}`;
+}
+
+async function updateGlobalEvent() {
+  if (!currentRoomCode || !uid) return;
+
+  const eventId = els.globalEventSelect.value;
+
+  if (!GLOBAL_EVENTS[eventId]) {
+    showToast("Evento global inválido");
+    return;
+  }
+
+  try {
+    await update(ref(db, `games/${currentRoomCode}/meta`), {
+      globalEvent: eventId,
+      updatedAt: serverTimestamp(),
+      updatedBy: uid
+    });
+
+    showToast(`Evento activo: ${GLOBAL_EVENTS[eventId].name}`);
+  } catch (error) {
+    console.error("Error actualizando evento global:", error);
+    showToast("No pude cambiar el evento global");
+  }
+}
+
+function renderDeathState(ownPlayer) {
+  const isDead = Number(ownPlayer.life || 0) <= 0;
+
+  els.deathBanner.classList.toggle("hidden", !isDead);
+
+  if (isDead && !wasOwnDead) {
+    els.deathVideo.currentTime = 0;
+    els.deathVideo.play().catch(() => null);
+  }
+
+  if (!isDead && wasOwnDead) {
+    els.deathVideo.pause();
+    els.deathVideo.currentTime = 0;
+  }
+
+  wasOwnDead = isDead;
 }
 
 function renderCommanderList() {
@@ -278,9 +378,11 @@ function renderGame() {
     `VIDA ${own.baseLife ?? commander.life} · ATQ ${own.baseAttack ?? commander.attack} · DEF ${own.baseDefense ?? commander.defense}`;
 
   els.lifeValue.textContent = own.life ?? 0;
-  els.attackValue.textContent = own.attack ?? 0;
-  els.defenseValue.textContent = own.defense ?? 0;
+  els.attackValue.textContent = getEffectiveAttack(own);
+  els.defenseValue.textContent = getEffectiveDefense(own);
 
+  renderGlobalEvent();
+  renderDeathState(own);
   renderPlayersList();
 
   showOnly("game");
@@ -321,21 +423,22 @@ function renderPlayersList() {
     const commander = getCommander(player.commanderId);
     const commanderName = player.commanderName || commander?.name || "Comandante";
     const isMe = player.uid === uid;
+    const isDead = Number(player.life || 0) <= 0;
 
     return `
-      <article class="player-card ${isMe ? "me" : ""}">
+      <article class="player-card ${isMe ? "me" : ""} ${isDead ? "dead" : ""}">
         <div class="player-card-top">
           <div>
             <h3>${escapeHtml(player.name || "Jugador")}</h3>
             <p>${escapeHtml(commanderName)}</p>
           </div>
-          ${isMe ? `<span class="me-pill">Tú</span>` : ""}
+          ${isDead ? `<span class="skull-pill">☠️</span>` : isMe ? `<span class="me-pill">Tú</span>` : ""}
         </div>
 
         <div class="player-mini-stats">
           <span>VIDA ${player.life ?? 0}</span>
-          <span>ATQ ${player.attack ?? 0}</span>
-          <span>DEF ${player.defense ?? 0}</span>
+          <span>ATQ ${getEffectiveAttack(player)}</span>
+          <span>DEF ${getEffectiveDefense(player)}</span>
         </div>
       </article>
     `;
@@ -433,13 +536,14 @@ async function createRoom() {
       const snapshot = await get(metaRef);
 
       if (!snapshot.exists()) {
-        await set(metaRef, {
-          status: "active",
-          version: 5,
-          createdBy: uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
+          await set(metaRef, {
+            status: "active",
+            version: 5,
+            globalEvent: "none",
+            createdBy: uid,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
 
         currentRoomCode = code;
         localStorage.setItem(ROOM_KEY, code);
@@ -608,7 +712,14 @@ async function changeOwnStat(target, delta) {
 
   if (!own || !currentRoomCode || !uid) return;
 
-  const nextValue = clampStat((Number(own[target]) || 0) + delta);
+  const currentValue = Number(own[target]) || 0;
+
+  const minValue = target === "life" ? 0 : -99;
+  const maxValue = target === "life"
+    ? Number(own.baseLife || own.life || 0)
+    : 999;
+
+  const nextValue = clampStat(currentValue + delta, minValue, maxValue);
 
   try {
     await update(ref(db, getPlayerPath()), {
@@ -805,6 +916,7 @@ els.startGameBtn.addEventListener("click", startPlayer);
 
 els.copyCodeBtnSetup.addEventListener("click", copyRoomCode);
 els.copyCodeBtnGame.addEventListener("click", copyRoomCode);
+els.globalEventSelect.addEventListener("change", updateGlobalEvent);
 
 document.querySelectorAll("[data-target][data-delta]").forEach((button) => {
   button.addEventListener("click", () => {
