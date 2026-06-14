@@ -1,4 +1,4 @@
-const CACHE_NAME = "comandantes-v5-sync-v2";
+const CACHE_NAME = "comandantes-v5-sync-v2.1";
 
 const ASSETS = [
   "./",
