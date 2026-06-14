@@ -1,3 +1,5 @@
+index.html:
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -18,7 +20,7 @@
           <p class="eyebrow">Juego de Mesa</p>
           <h1>Tracker de Comandante</h1>
         </div>
-        <button class="ghost-button" id="resetAllBtn" type="button" aria-label="Reiniciar partida">↺</button>
+        <button class="ghost-button" id="resetAllBtn" type="button" aria-label="Reiniciar mi comandante">↺</button>
       </div>
 
       <button class="install-button" id="installBtn" type="button">
@@ -26,7 +28,44 @@
         <span>Instalar app</span>
       </button>
 
-      <section id="setupView" class="setup-view">
+      <section id="loadingView" class="view">
+        <div class="status-card">
+          <strong>Conectando...</strong>
+          <span id="loadingText">Preparando Firebase</span>
+        </div>
+      </section>
+
+      <section id="homeView" class="view hidden">
+        <div class="mode-card">
+          <h2>Partida sincronizada</h2>
+          <p>Crea una sala o únete con código. Todos los celulares verán la mesa en vivo.</p>
+        </div>
+
+        <button id="createRoomBtn" class="start-button" type="button">Crear partida</button>
+
+        <div class="join-box">
+          <label class="name-label" for="roomCodeInput">Unirse a una partida</label>
+          <div class="join-row">
+            <input id="roomCodeInput" class="name-input code-input" maxlength="6" placeholder="CÓDIGO" autocomplete="off" />
+            <button id="joinRoomBtn" class="join-button" type="button">Unirse</button>
+          </div>
+        </div>
+
+        <div id="firebaseWarning" class="warning-card hidden">
+          <strong>Firebase no configurado</strong>
+          <span>Completá el archivo <code>firebase-config.js</code> para activar la sincronización en vivo.</span>
+        </div>
+      </section>
+
+      <section id="setupView" class="view setup-view hidden">
+        <div class="room-banner">
+          <div>
+            <span>Sala</span>
+            <strong id="setupRoomCode">------</strong>
+          </div>
+          <button id="copyCodeBtnSetup" type="button">Copiar</button>
+        </div>
+
         <label class="name-label" for="playerNameSetup">Nombre del jugador</label>
         <input id="playerNameSetup" class="name-input" maxlength="24" placeholder="Escribe tu nombre" autocomplete="off" />
 
@@ -38,11 +77,19 @@
         <div id="commanderList" class="commander-list" aria-label="Lista de comandantes"></div>
 
         <button class="start-button" id="startGameBtn" type="button" disabled>
-          Comenzar partida
+          Entrar a la partida
         </button>
       </section>
 
-      <section id="gameView" class="game-view hidden">
+      <section id="gameView" class="view game-view hidden">
+        <div class="room-banner">
+          <div>
+            <span>Sala</span>
+            <strong id="gameRoomCode">------</strong>
+          </div>
+          <button id="copyCodeBtnGame" type="button">Copiar</button>
+        </div>
+
         <div class="player-banner">
           <div>
             <span id="playerNameDisplay">Jugador</span>
@@ -58,7 +105,7 @@
 
         <div class="vital-orb" aria-live="polite">
           <span class="orb-label">VIDA</span>
-          <strong id="lifeValue">30</strong>
+          <strong id="lifeValue">0</strong>
         </div>
 
         <div class="main-controls" aria-label="Controles de vida">
@@ -98,18 +145,30 @@
 
     <section id="quickActions" class="quick-actions hidden">
       <button type="button" id="resetCombatBtn">ATQ/DEF base</button>
-      <button type="button" id="newGameBtn">Reiniciar partida</button>
+      <button type="button" id="newGameBtn">Reiniciar mi comandante</button>
+      <button type="button" id="leaveRoomBtn" class="wide danger-soft">Salir de la sala</button>
+    </section>
+
+    <section id="tableView" class="table-view hidden">
+      <div class="table-header">
+        <div>
+          <span>Mesa sincronizada</span>
+          <strong id="playerCountText">0 jugadores</strong>
+        </div>
+        <small>Actualización en vivo</small>
+      </div>
+      <div id="playersList" class="players-list"></div>
     </section>
 
     <footer id="footerInfo">
-      <span>Guardado automático en este celular</span>
+      <span>Sincronización en vivo con código de sala</span>
     </footer>
   </main>
 
   <dialog id="confirmDialog">
     <form method="dialog">
-      <h2>Reiniciar partida</h2>
-      <p>Esto devuelve vida, ataque y defensa a los valores base de tu comandante. El comandante seguirá bloqueado.</p>
+      <h2>Reiniciar mi comandante</h2>
+      <p>Esto devuelve tu vida, ataque y defensa a los valores base de tu comandante. No cambia tu comandante.</p>
       <div class="dialog-actions">
         <button value="cancel" type="submit">Cancelar</button>
         <button value="confirm" class="danger" type="submit">Reiniciar</button>
@@ -117,13 +176,13 @@
     </form>
   </dialog>
 
-  <dialog id="wipeDialog">
+  <dialog id="leaveDialog">
     <form method="dialog">
-      <h2>Borrar datos</h2>
-      <p>Esto borra el jugador actual y vuelve a la selección de comandante. Usalo sólo cuando termina la partida o cuando quieras preparar otra sesión.</p>
+      <h2>Salir de la sala</h2>
+      <p>Esto elimina tu jugador de esta partida en vivo. Si vuelves a entrar, deberás elegir comandante otra vez.</p>
       <div class="dialog-actions">
         <button value="cancel" type="submit">Cancelar</button>
-        <button value="confirm" class="danger" type="submit">Borrar</button>
+        <button value="confirm" class="danger" type="submit">Salir</button>
       </div>
     </form>
   </dialog>
@@ -140,7 +199,9 @@
     </form>
   </dialog>
 
+  <div id="toast" class="toast hidden"></div>
+
   <script src="commanders.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
