@@ -14,7 +14,7 @@ export function isFirebaseConfigured() {
   return Boolean(
     firebaseConfig.apiKey &&
     firebaseConfig.databaseURL &&
-    !firebaseConfig.apiKey.includes("PEGAR") &&
-    !firebaseConfig.databaseURL.includes("PEGAR")
+    !firebaseConfig.apiKey.includes("AIzaSyC-9PFZlBOuNpY-_a7pXL6mMbM1R0jZ9Q8") &&
+    !firebaseConfig.databaseURL.includes("https://tabletop-a3a19-default-rtdb.firebaseio.com")
   );
 }
