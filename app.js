@@ -1,62 +1,160 @@
-const STORAGE_KEY = "comandantes-individual-tracker-v4";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  update,
+  remove,
+  onValue,
+  serverTimestamp,
+  onDisconnect
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
-const defaultState = {
-  setupComplete: false,
-  name: "",
-  commanderId: null,
-  life: 0,
-  attack: 0,
-  defense: 0
-};
+import { firebaseConfig, isFirebaseConfigured } from "./firebase-config.js";
 
-let state = loadState();
-let selectedCommanderId = state.commanderId;
+const ROOM_KEY = "commander-tracker-current-room-v5";
+const NAME_KEY = "commander-tracker-player-name-v5";
+
+let app = null;
+let db = null;
+let auth = null;
+let uid = null;
+
+let currentRoomCode = localStorage.getItem(ROOM_KEY) || "";
+let currentGame = null;
+let selectedCommanderId = null;
+let unsubscribeGame = null;
 let deferredInstallPrompt = null;
 
 const els = {
+  loadingView: document.querySelector("#loadingView"),
+  loadingText: document.querySelector("#loadingText"),
+
+  homeView: document.querySelector("#homeView"),
   setupView: document.querySelector("#setupView"),
   gameView: document.querySelector("#gameView"),
-  commanderList: document.querySelector("#commanderList"),
+
+  statGrid: document.querySelector("#statGrid"),
+  quickActions: document.querySelector("#quickActions"),
+  tableView: document.querySelector("#tableView"),
+
+  firebaseWarning: document.querySelector("#firebaseWarning"),
+
+  createRoomBtn: document.querySelector("#createRoomBtn"),
+  roomCodeInput: document.querySelector("#roomCodeInput"),
+  joinRoomBtn: document.querySelector("#joinRoomBtn"),
+
+  setupRoomCode: document.querySelector("#setupRoomCode"),
+  gameRoomCode: document.querySelector("#gameRoomCode"),
+  copyCodeBtnSetup: document.querySelector("#copyCodeBtnSetup"),
+  copyCodeBtnGame: document.querySelector("#copyCodeBtnGame"),
+
   playerNameSetup: document.querySelector("#playerNameSetup"),
+  commanderList: document.querySelector("#commanderList"),
   startGameBtn: document.querySelector("#startGameBtn"),
+
   playerNameDisplay: document.querySelector("#playerNameDisplay"),
   commanderNameDisplay: document.querySelector("#commanderNameDisplay"),
   baseStatsDisplay: document.querySelector("#baseStatsDisplay"),
+
   lifeValue: document.querySelector("#lifeValue"),
   attackValue: document.querySelector("#attackValue"),
   defenseValue: document.querySelector("#defenseValue"),
-  statGrid: document.querySelector("#statGrid"),
-  quickActions: document.querySelector("#quickActions"),
-  footerInfo: document.querySelector("#footerInfo"),
+
+  playerCountText: document.querySelector("#playerCountText"),
+  playersList: document.querySelector("#playersList"),
+
   resetCombatBtn: document.querySelector("#resetCombatBtn"),
   newGameBtn: document.querySelector("#newGameBtn"),
+  leaveRoomBtn: document.querySelector("#leaveRoomBtn"),
   resetAllBtn: document.querySelector("#resetAllBtn"),
+
   confirmDialog: document.querySelector("#confirmDialog"),
-  wipeDialog: document.querySelector("#wipeDialog"),
+  leaveDialog: document.querySelector("#leaveDialog"),
+
   installBtn: document.querySelector("#installBtn"),
   installHelpDialog: document.querySelector("#installHelpDialog"),
-  installHelpText: document.querySelector("#installHelpText")
+  installHelpText: document.querySelector("#installHelpText"),
+
+  toast: document.querySelector("#toast")
 };
 
-function loadState() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? { ...defaultState, ...JSON.parse(saved) } : { ...defaultState };
-  } catch {
-    return { ...defaultState };
+function showOnly(viewName) {
+  const views = {
+    loading: els.loadingView,
+    home: els.homeView,
+    setup: els.setupView,
+    game: els.gameView
+  };
+
+  Object.values(views).forEach((view) => {
+    view.classList.add("hidden");
+  });
+
+  views[viewName].classList.remove("hidden");
+
+  const inGame = viewName === "game";
+
+  els.statGrid.classList.toggle("hidden", !inGame);
+  els.quickActions.classList.toggle("hidden", !inGame);
+  els.tableView.classList.toggle("hidden", !inGame);
+}
+
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.classList.remove("hidden");
+
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => {
+    els.toast.classList.add("hidden");
+  }, 2400);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function normalizeRoomCode(value) {
+  return String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 6);
+}
+
+function generateRoomCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+
+  for (let index = 0; index < 6; index += 1) {
+    code += chars[Math.floor(Math.random() * chars.length)];
   }
+
+  return code;
 }
 
-function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function getCommanders() {
+  if (window.COMMANDERS) return window.COMMANDERS;
+
+  if (typeof COMMANDERS !== "undefined") {
+    return COMMANDERS;
+  }
+
+  return [];
 }
 
-function getCommander(id = state.commanderId) {
-  return COMMANDERS.find((commander) => commander.id === id) || null;
+function getCommander(id) {
+  return getCommanders().find((commander) => commander.id === id) || null;
 }
 
 function getInitials(name) {
-  return name
+  return String(name || "?")
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
@@ -65,10 +163,39 @@ function getInitials(name) {
     .toUpperCase();
 }
 
+function getPlayerPath(roomCode = currentRoomCode) {
+  return `games/${roomCode}/players/${uid}`;
+}
+
+function getOwnPlayer() {
+  return currentGame?.players?.[uid] || null;
+}
+
+function playerBaseFromCommander(commander) {
+  return {
+    baseLife: commander.life,
+    baseAttack: commander.attack,
+    baseDefense: commander.defense
+  };
+}
+
 function renderCommanderList() {
+  const commanders = getCommanders();
+
   els.commanderList.innerHTML = "";
 
-  COMMANDERS.forEach((commander) => {
+  if (!commanders.length) {
+    els.commanderList.innerHTML = `
+      <div class="warning-card">
+        <strong>No hay comandantes cargados</strong>
+        <span>Revisá que el archivo commanders.js exista y no tenga errores.</span>
+      </div>
+    `;
+    updateStartButton();
+    return;
+  }
+
+  commanders.forEach((commander) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "commander-option";
@@ -80,9 +207,9 @@ function renderCommanderList() {
     }
 
     button.innerHTML = `
-      <div class="commander-medal">${getInitials(commander.name)}</div>
+      <div class="commander-medal">${escapeHtml(getInitials(commander.name))}</div>
       <div class="commander-info">
-        <strong>${commander.name}</strong>
+        <strong>${escapeHtml(commander.name)}</strong>
         <div class="commander-stats">
           <span>VIDA ${commander.life}</span>
           <span>ATQ ${commander.attack}</span>
@@ -104,113 +231,501 @@ function renderCommanderList() {
 function updateStartButton() {
   const hasName = els.playerNameSetup.value.trim().length > 0;
   const hasCommander = Boolean(selectedCommanderId);
-  els.startGameBtn.disabled = !(hasName && hasCommander);
+  const hasRoom = Boolean(currentRoomCode);
+
+  els.startGameBtn.disabled = !(hasName && hasCommander && hasRoom);
 }
 
-function render() {
-  const commander = getCommander();
+function renderHome() {
+  showOnly("home");
+  document.title = "Tracker de Comandante";
+}
 
-  if (state.setupComplete && commander) {
-    els.setupView.classList.add("hidden");
-    els.gameView.classList.remove("hidden");
-    els.statGrid.classList.remove("hidden");
-    els.quickActions.classList.remove("hidden");
+function renderSetup() {
+  els.setupRoomCode.textContent = currentRoomCode || "------";
+  els.playerNameSetup.value = localStorage.getItem(NAME_KEY) || "";
 
-    els.playerNameDisplay.textContent = state.name || "Jugador";
-    els.commanderNameDisplay.textContent = commander.name;
-    els.baseStatsDisplay.textContent = `VIDA ${commander.life} · ATQ ${commander.attack} · DEF ${commander.defense}`;
-    els.lifeValue.textContent = state.life;
-    els.attackValue.textContent = state.attack;
-    els.defenseValue.textContent = state.defense;
+  renderCommanderList();
+  updateStartButton();
 
-    els.footerInfo.innerHTML = `
-      <span>Comandante bloqueado para esta partida</span>
-      <button type="button" id="wipeBtn">Borrar datos y elegir otro</button>
-    `;
+  showOnly("setup");
+  document.title = currentRoomCode
+    ? `Sala ${currentRoomCode} · Setup`
+    : "Tracker de Comandante";
+}
 
-    document.querySelector("#wipeBtn").addEventListener("click", () => {
-      if (typeof els.wipeDialog.showModal === "function") {
-        els.wipeDialog.showModal();
-      } else {
-        wipeState();
-      }
-    });
+function renderGame() {
+  const own = getOwnPlayer();
 
-    document.title = `${state.name || "Jugador"} · ${commander.name}`;
-  } else {
-    els.setupView.classList.remove("hidden");
-    els.gameView.classList.add("hidden");
-    els.statGrid.classList.add("hidden");
-    els.quickActions.classList.add("hidden");
-
-    els.playerNameSetup.value = state.name || "";
-    renderCommanderList();
-    updateStartButton();
-
-    els.footerInfo.innerHTML = `<span>Guardado automático en este celular</span>`;
-    document.title = "Tracker de Comandante";
+  if (!own) {
+    renderSetup();
+    return;
   }
 
-  saveState();
+  const commander = getCommander(own.commanderId) || {
+    name: own.commanderName || "Comandante",
+    life: own.baseLife ?? own.life,
+    attack: own.baseAttack ?? own.attack,
+    defense: own.baseDefense ?? own.defense
+  };
+
+  els.gameRoomCode.textContent = currentRoomCode;
+
+  els.playerNameDisplay.textContent = own.name || "Jugador";
+  els.commanderNameDisplay.textContent = own.commanderName || commander.name;
+
+  els.baseStatsDisplay.textContent =
+    `VIDA ${own.baseLife ?? commander.life} · ATQ ${own.baseAttack ?? commander.attack} · DEF ${own.baseDefense ?? commander.defense}`;
+
+  els.lifeValue.textContent = own.life ?? 0;
+  els.attackValue.textContent = own.attack ?? 0;
+  els.defenseValue.textContent = own.defense ?? 0;
+
+  renderPlayersList();
+
+  showOnly("game");
+
+  document.title = `${own.name || "Jugador"} · ${currentRoomCode}`;
+}
+
+function renderPlayersList() {
+  const players = Object.entries(currentGame?.players || {})
+    .map(([playerUid, player]) => ({
+      uid: playerUid,
+      ...player
+    }))
+    .sort((a, b) => {
+      const orderA = a.joinedOrder || 0;
+      const orderB = b.joinedOrder || 0;
+
+      if (orderA !== orderB) return orderA - orderB;
+
+      return String(a.name || "").localeCompare(String(b.name || ""));
+    });
+
+  const count = players.length;
+
+  els.playerCountText.textContent =
+    `${count} ${count === 1 ? "jugador" : "jugadores"}`;
+
+  if (!players.length) {
+    els.playersList.innerHTML = `
+      <div class="player-card">
+        <p>No hay jugadores todavía.</p>
+      </div>
+    `;
+    return;
+  }
+
+  els.playersList.innerHTML = players.map((player) => {
+    const commander = getCommander(player.commanderId);
+    const commanderName = player.commanderName || commander?.name || "Comandante";
+    const isMe = player.uid === uid;
+
+    return `
+      <article class="player-card ${isMe ? "me" : ""}">
+        <div class="player-card-top">
+          <div>
+            <h3>${escapeHtml(player.name || "Jugador")}</h3>
+            <p>${escapeHtml(commanderName)}</p>
+          </div>
+          ${isMe ? `<span class="me-pill">Tú</span>` : ""}
+        </div>
+
+        <div class="player-mini-stats">
+          <span>VIDA ${player.life ?? 0}</span>
+          <span>ATQ ${player.attack ?? 0}</span>
+          <span>DEF ${player.defense ?? 0}</span>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+async function bootstrapFirebase() {
+  if (!isFirebaseConfigured()) {
+    els.firebaseWarning.classList.remove("hidden");
+    els.createRoomBtn.disabled = true;
+    els.joinRoomBtn.disabled = true;
+    els.loadingText.textContent = "Firebase no configurado";
+    renderHome();
+    return;
+  }
+
+  try {
+    app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+    auth = getAuth(app);
+
+    els.loadingText.textContent = "Iniciando sesión anónima";
+
+    const credential = await signInAnonymously(auth);
+    uid = credential.user.uid;
+
+    els.loadingText.textContent = "Conectado";
+
+    if (currentRoomCode) {
+      await tryRestoreRoom(currentRoomCode);
+    } else {
+      renderHome();
+    }
+  } catch (error) {
+    console.error("Error iniciando Firebase:", error);
+
+    els.firebaseWarning.classList.remove("hidden");
+    els.createRoomBtn.disabled = true;
+    els.joinRoomBtn.disabled = true;
+
+    renderHome();
+
+    showToast("Error Firebase: revisá config, DB y Auth anónimo");
+  }
+}
+
+async function tryRestoreRoom(roomCode) {
+  const code = normalizeRoomCode(roomCode);
+
+  if (!code) {
+    renderHome();
+    return;
+  }
+
+  try {
+    const metaSnapshot = await get(ref(db, `games/${code}/meta`));
+
+    if (!metaSnapshot.exists()) {
+      localStorage.removeItem(ROOM_KEY);
+      currentRoomCode = "";
+      renderHome();
+      return;
+    }
+
+    currentRoomCode = code;
+    localStorage.setItem(ROOM_KEY, code);
+
+    const playerSnapshot = await get(ref(db, getPlayerPath(code)));
+
+    if (playerSnapshot.exists()) {
+      subscribeToRoom(code);
+    } else {
+      renderSetup();
+    }
+  } catch (error) {
+    console.error("Error restaurando sala:", error);
+    localStorage.removeItem(ROOM_KEY);
+    currentRoomCode = "";
+    renderHome();
+  }
+}
+
+async function createRoom() {
+  if (!db || !uid) {
+    showToast("Firebase todavía no está listo");
+    return;
+  }
+
+  els.createRoomBtn.disabled = true;
+
+  try {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const code = generateRoomCode();
+      const metaRef = ref(db, `games/${code}/meta`);
+      const snapshot = await get(metaRef);
+
+      if (!snapshot.exists()) {
+        await set(metaRef, {
+          status: "active",
+          version: 5,
+          createdBy: uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        currentRoomCode = code;
+        localStorage.setItem(ROOM_KEY, code);
+
+        selectedCommanderId = null;
+
+        showToast(`Sala creada: ${code}`);
+        renderSetup();
+
+        return;
+      }
+    }
+
+    showToast("No pude crear código. Probá de nuevo.");
+  } catch (error) {
+    console.error("Error creando sala:", error);
+    showToast("Error al crear sala");
+  } finally {
+    els.createRoomBtn.disabled = false;
+  }
+}
+
+async function joinRoom() {
+  if (!db || !uid) {
+    showToast("Firebase todavía no está listo");
+    return;
+  }
+
+  const code = normalizeRoomCode(els.roomCodeInput.value);
+  els.roomCodeInput.value = code;
+
+  if (code.length !== 6) {
+    showToast("El código debe tener 6 caracteres");
+    return;
+  }
+
+  try {
+    const metaSnapshot = await get(ref(db, `games/${code}/meta`));
+
+    if (!metaSnapshot.exists()) {
+      showToast("No existe una sala con ese código");
+      return;
+    }
+
+    currentRoomCode = code;
+    localStorage.setItem(ROOM_KEY, code);
+
+    const playerSnapshot = await get(ref(db, getPlayerPath(code)));
+
+    if (playerSnapshot.exists()) {
+      subscribeToRoom(code);
+    } else {
+      selectedCommanderId = null;
+      renderSetup();
+    }
+  } catch (error) {
+    console.error("Error uniéndose a sala:", error);
+    showToast("Error al unirse a la sala");
+  }
+}
+
+async function startPlayer() {
+  const name = els.playerNameSetup.value.trim();
+  const commander = getCommander(selectedCommanderId);
+
+  if (!name) {
+    showToast("Escribí tu nombre");
+    return;
+  }
+
+  if (!commander) {
+    showToast("Elegí un comandante");
+    return;
+  }
+
+  if (!currentRoomCode || !uid) {
+    showToast("No hay sala activa");
+    return;
+  }
+
+  try {
+    localStorage.setItem(NAME_KEY, name);
+
+    const playersSnapshot = await get(ref(db, `games/${currentRoomCode}/players`));
+    const playerCount = playersSnapshot.exists()
+      ? Object.keys(playersSnapshot.val() || {}).length
+      : 0;
+
+    if (playerCount >= 8) {
+      showToast("La sala ya tiene 8 jugadores");
+      return;
+    }
+
+    const playerData = {
+      name,
+      commanderId: commander.id,
+      commanderName: commander.name,
+      ...playerBaseFromCommander(commander),
+      life: commander.life,
+      attack: commander.attack,
+      defense: commander.defense,
+      joinedOrder: playerCount + 1,
+      joinedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      online: true
+    };
+
+    await set(ref(db, getPlayerPath()), playerData);
+
+    await onDisconnect(ref(db, `${getPlayerPath()}/online`)).set(false);
+
+    subscribeToRoom(currentRoomCode);
+  } catch (error) {
+    console.error("Error entrando a partida:", error);
+    showToast("No pude entrar a la partida");
+  }
+}
+
+function subscribeToRoom(roomCode) {
+  if (unsubscribeGame) {
+    unsubscribeGame();
+    unsubscribeGame = null;
+  }
+
+  currentRoomCode = normalizeRoomCode(roomCode);
+  localStorage.setItem(ROOM_KEY, currentRoomCode);
+
+  unsubscribeGame = onValue(
+    ref(db, `games/${currentRoomCode}`),
+    (snapshot) => {
+      if (!snapshot.exists() || !snapshot.val()?.meta) {
+        currentGame = null;
+        localStorage.removeItem(ROOM_KEY);
+        currentRoomCode = "";
+
+        showToast("La sala ya no existe");
+        renderHome();
+
+        return;
+      }
+
+      currentGame = snapshot.val();
+
+      const own = getOwnPlayer();
+
+      if (!own) {
+        renderSetup();
+        return;
+      }
+
+      renderGame();
+    },
+    (error) => {
+      console.error("Error escuchando sala:", error);
+      showToast("Error de sincronización");
+    }
+  );
 }
 
 function clampStat(value, min = -99, max = 999) {
   return Math.max(min, Math.min(max, Number(value) || 0));
 }
 
-function changeStat(target, delta) {
-  if (!state.setupComplete) return;
-  state[target] = clampStat(state[target] + delta);
-  render();
+async function changeOwnStat(target, delta) {
+  const own = getOwnPlayer();
+
+  if (!own || !currentRoomCode || !uid) return;
+
+  const nextValue = clampStat((Number(own[target]) || 0) + delta);
+
+  try {
+    await update(ref(db, getPlayerPath()), {
+      [target]: nextValue,
+      updatedAt: serverTimestamp(),
+      online: true
+    });
+  } catch (error) {
+    console.error("Error actualizando stat:", error);
+    showToast("No pude actualizar el valor");
+  }
 }
 
-function resetToCommanderBase() {
-  const commander = getCommander();
-  if (!commander) return;
+async function setOwnStatToBase(target) {
+  const own = getOwnPlayer();
 
-  state.life = commander.life;
-  state.attack = commander.attack;
-  state.defense = commander.defense;
-  render();
-}
+  if (!own) return;
 
-function resetCombatToBase() {
-  const commander = getCommander();
-  if (!commander) return;
-
-  state.attack = commander.attack;
-  state.defense = commander.defense;
-  render();
-}
-
-function startGame() {
-  const commander = COMMANDERS.find((item) => item.id === selectedCommanderId);
-  const name = els.playerNameSetup.value.trim();
-
-  if (!commander || !name) return;
-
-  state = {
-    setupComplete: true,
-    name,
-    commanderId: commander.id,
-    life: commander.life,
-    attack: commander.attack,
-    defense: commander.defense
+  const baseMap = {
+    life: "baseLife",
+    attack: "baseAttack",
+    defense: "baseDefense"
   };
 
-  selectedCommanderId = commander.id;
-  render();
+  const baseValue = own[baseMap[target]];
+
+  if (typeof baseValue === "undefined") return;
+
+  try {
+    await update(ref(db, getPlayerPath()), {
+      [target]: baseValue,
+      updatedAt: serverTimestamp(),
+      online: true
+    });
+  } catch (error) {
+    console.error("Error reseteando stat:", error);
+    showToast("No pude resetear");
+  }
 }
 
-function wipeState() {
-  state = { ...defaultState };
+async function resetOwnCommander() {
+  const own = getOwnPlayer();
+
+  if (!own) return;
+
+  try {
+    await update(ref(db, getPlayerPath()), {
+      life: own.baseLife,
+      attack: own.baseAttack,
+      defense: own.baseDefense,
+      updatedAt: serverTimestamp(),
+      online: true
+    });
+  } catch (error) {
+    console.error("Error reiniciando comandante:", error);
+    showToast("No pude reiniciar");
+  }
+}
+
+async function resetOwnCombat() {
+  const own = getOwnPlayer();
+
+  if (!own) return;
+
+  try {
+    await update(ref(db, getPlayerPath()), {
+      attack: own.baseAttack,
+      defense: own.baseDefense,
+      updatedAt: serverTimestamp(),
+      online: true
+    });
+  } catch (error) {
+    console.error("Error reseteando ATQ/DEF:", error);
+    showToast("No pude resetear ATQ/DEF");
+  }
+}
+
+async function leaveRoom() {
+  if (!currentRoomCode || !uid) {
+    renderHome();
+    return;
+  }
+
+  try {
+    await remove(ref(db, getPlayerPath()));
+  } catch (error) {
+    console.error("Error saliendo de sala:", error);
+  }
+
+  if (unsubscribeGame) {
+    unsubscribeGame();
+    unsubscribeGame = null;
+  }
+
+  currentGame = null;
   selectedCommanderId = null;
-  localStorage.removeItem(STORAGE_KEY);
-  render();
+
+  localStorage.removeItem(ROOM_KEY);
+  currentRoomCode = "";
+
+  renderHome();
+}
+
+async function copyRoomCode() {
+  if (!currentRoomCode) return;
+
+  try {
+    await navigator.clipboard.writeText(currentRoomCode);
+    showToast("Código copiado");
+  } catch {
+    showToast(`Código: ${currentRoomCode}`);
+  }
 }
 
 function isStandaloneMode() {
-  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  return window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
 }
 
 function getInstallHelpMessage() {
@@ -242,6 +757,7 @@ function showInstallHelp() {
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   deferredInstallPrompt = event;
+
   if (!isStandaloneMode()) {
     els.installBtn.classList.remove("hidden");
   }
@@ -264,69 +780,84 @@ els.installBtn.addEventListener("click", async () => {
   }
 
   deferredInstallPrompt.prompt();
+
   await deferredInstallPrompt.userChoice.catch(() => null);
+
   deferredInstallPrompt = null;
 });
 
-els.playerNameSetup.addEventListener("input", () => {
-  state.name = els.playerNameSetup.value.trimStart();
-  updateStartButton();
-  saveState();
+els.createRoomBtn.addEventListener("click", createRoom);
+els.joinRoomBtn.addEventListener("click", joinRoom);
+
+els.roomCodeInput.addEventListener("input", () => {
+  els.roomCodeInput.value = normalizeRoomCode(els.roomCodeInput.value);
 });
 
-els.startGameBtn.addEventListener("click", startGame);
+els.roomCodeInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    joinRoom();
+  }
+});
+
+els.playerNameSetup.addEventListener("input", updateStartButton);
+
+els.startGameBtn.addEventListener("click", startPlayer);
+
+els.copyCodeBtnSetup.addEventListener("click", copyRoomCode);
+els.copyCodeBtnGame.addEventListener("click", copyRoomCode);
 
 document.querySelectorAll("[data-target][data-delta]").forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.target;
     const delta = Number(button.dataset.delta);
-    changeStat(target, delta);
+
+    changeOwnStat(target, delta);
   });
 });
 
 document.querySelectorAll("[data-reset-base]").forEach((button) => {
   button.addEventListener("click", () => {
-    const target = button.dataset.resetBase;
-    const commander = getCommander();
-    if (!commander) return;
-    state[target] = commander[target];
-    render();
+    setOwnStatToBase(button.dataset.resetBase);
   });
 });
 
-els.resetCombatBtn.addEventListener("click", resetCombatToBase);
+els.resetCombatBtn.addEventListener("click", resetOwnCombat);
 
 els.newGameBtn.addEventListener("click", () => {
-  if (!state.setupComplete) return;
-
   if (typeof els.confirmDialog.showModal === "function") {
     els.confirmDialog.showModal();
   } else {
-    resetToCommanderBase();
+    resetOwnCommander();
   }
 });
 
 els.resetAllBtn.addEventListener("click", () => {
-  if (state.setupComplete) {
+  if (getOwnPlayer()) {
     if (typeof els.confirmDialog.showModal === "function") {
       els.confirmDialog.showModal();
     } else {
-      resetToCommanderBase();
+      resetOwnCommander();
     }
-  } else {
-    wipeState();
   }
 });
 
 els.confirmDialog.addEventListener("close", () => {
   if (els.confirmDialog.returnValue === "confirm") {
-    resetToCommanderBase();
+    resetOwnCommander();
   }
 });
 
-els.wipeDialog.addEventListener("close", () => {
-  if (els.wipeDialog.returnValue === "confirm") {
-    wipeState();
+els.leaveRoomBtn.addEventListener("click", () => {
+  if (typeof els.leaveDialog.showModal === "function") {
+    els.leaveDialog.showModal();
+  } else {
+    leaveRoom();
+  }
+});
+
+els.leaveDialog.addEventListener("close", () => {
+  if (els.leaveDialog.returnValue === "confirm") {
+    leaveRoom();
   }
 });
 
@@ -336,19 +867,12 @@ if (isStandaloneMode()) {
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
-  });
-
-  // Recarga automática al actualizar el Service Worker
-  let refreshing;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
-    }
+    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+      console.error("Error registrando Service Worker:", error);
+    });
   });
 }
 
-render();
-
-render();
+showOnly("loading");
+renderCommanderList();
+bootstrapFirebase();
