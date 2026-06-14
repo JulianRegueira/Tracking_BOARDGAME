@@ -1,5 +1,4 @@
-
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyC-9PFZlBOuNpY-_a7pXL6mMbM1R0jZ9Q8",
   authDomain: "tabletop-a3a19.firebaseapp.com",
   databaseURL:"https://tabletop-a3a19-default-rtdb.firebaseio.com",
@@ -13,7 +12,10 @@ const firebaseConfig = {
 export function isFirebaseConfigured() {
   return Boolean(
     firebaseConfig.apiKey &&
+    firebaseConfig.authDomain &&
     firebaseConfig.databaseURL &&
+    firebaseConfig.projectId &&
+    firebaseConfig.appId &&
     !firebaseConfig.apiKey.includes("AIzaSyC-9PFZlBOuNpY-_a7pXL6mMbM1R0jZ9Q8") &&
     !firebaseConfig.databaseURL.includes("https://tabletop-a3a19-default-rtdb.firebaseio.com")
   );
