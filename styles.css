@@ -1016,3 +1016,94 @@ dialog p {
   background: #f3c969;
   color: #251723;
 }
+
+/* Daño potencial entre comandantes */
+.player-card-pills {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.leader-pill {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(104, 211, 145, 0.18);
+  border: 1px solid rgba(104, 211, 145, 0.36);
+  color: #d7ffe7;
+  font-size: 0.68rem;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.damage-preview {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.damage-preview-title {
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 1000;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.damage-list {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.damage-row {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.damage-row-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.damage-value {
+  flex: 0 0 auto;
+  color: #ffd9d6;
+  font-size: 0.8rem;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.no-damage {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.68rem;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.damage-empty {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}

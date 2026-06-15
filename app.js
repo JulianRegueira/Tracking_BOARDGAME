@@ -390,6 +390,49 @@ function renderGame() {
   document.title = `${own.name || "Jugador"} · ${currentRoomCode}`;
 }
 
+function calculateDamage(attacker, defender) {
+  const attackerAttack = getEffectiveAttack(attacker);
+  const defenderDefense = getEffectiveDefense(defender);
+
+  return Math.max(0, attackerAttack - defenderDefense);
+}
+
+function renderDamagePreview(attacker, players) {
+  const opponents = players.filter((player) => player.uid !== attacker.uid);
+
+  if (!opponents.length) {
+    return `
+      <div class="damage-preview">
+        <div class="damage-preview-title">Daño potencial</div>
+        <div class="damage-empty">No hay otros comandantes en mesa.</div>
+      </div>
+    `;
+  }
+
+  const rows = opponents.map((defender) => {
+    const defenderCommander = getCommander(defender.commanderId);
+    const defenderName = defender.name || defenderCommander?.name || "Jugador";
+    const damage = calculateDamage(attacker, defender);
+    const damageText = damage > 0
+      ? `<strong class="damage-value">${damage} daño</strong>`
+      : `<span class="no-damage">No realiza Daño</span>`;
+
+    return `
+      <div class="damage-row">
+        <span class="damage-row-name">${escapeHtml(defenderName)}</span>
+        ${damageText}
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div class="damage-preview">
+      <div class="damage-preview-title">Daño potencial</div>
+      <div class="damage-list">${rows}</div>
+    </div>
+  `;
+}
+
 function renderPlayersList() {
   const players = Object.entries(currentGame?.players || {})
     .map(([playerUid, player]) => ({
@@ -397,12 +440,16 @@ function renderPlayersList() {
       ...player
     }))
     .sort((a, b) => {
-      const orderA = a.joinedOrder || 0;
-      const orderB = b.joinedOrder || 0;
+      const lifeDiff = Number(b.life ?? 0) - Number(a.life ?? 0);
+
+      if (lifeDiff !== 0) return lifeDiff;
+
+      const orderA = Number(a.joinedOrder || 0);
+      const orderB = Number(b.joinedOrder || 0);
 
       if (orderA !== orderB) return orderA - orderB;
 
-      return String(a.name || "").localeCompare(String(b.name || ""));
+      return String(a.name || "").localeCompare(String(b.name || ""), "es");
     });
 
   const count = players.length;
@@ -419,11 +466,14 @@ function renderPlayersList() {
     return;
   }
 
-  els.playersList.innerHTML = players.map((player) => {
+  els.playersList.innerHTML = players.map((player, index) => {
     const commander = getCommander(player.commanderId);
     const commanderName = player.commanderName || commander?.name || "Comandante";
     const isMe = player.uid === uid;
     const isDead = Number(player.life || 0) <= 0;
+    const leaderPill = index === 0 && players.length > 1 && !isDead
+      ? `<span class="leader-pill">Mayor vida</span>`
+      : "";
 
     return `
       <article class="player-card ${isMe ? "me" : ""} ${isDead ? "dead" : ""}">
@@ -432,7 +482,10 @@ function renderPlayersList() {
             <h3>${escapeHtml(player.name || "Jugador")}</h3>
             <p>${escapeHtml(commanderName)}</p>
           </div>
-          ${isDead ? `<span class="skull-pill">☠️</span>` : isMe ? `<span class="me-pill">Tú</span>` : ""}
+          <div class="player-card-pills">
+            ${leaderPill}
+            ${isDead ? `<span class="skull-pill">☠️</span>` : isMe ? `<span class="me-pill">Tú</span>` : ""}
+          </div>
         </div>
 
         <div class="player-mini-stats">
@@ -440,11 +493,12 @@ function renderPlayersList() {
           <span>ATQ ${getEffectiveAttack(player)}</span>
           <span>DEF ${getEffectiveDefense(player)}</span>
         </div>
+
+        ${renderDamagePreview(player, players)}
       </article>
     `;
   }).join("");
 }
-
 async function bootstrapFirebase() {
   if (!isFirebaseConfigured()) {
     els.firebaseWarning.classList.remove("hidden");
