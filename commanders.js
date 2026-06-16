@@ -24,9 +24,9 @@ const COMMANDERS = [
   {
     id: "3",
     name: "ELYRA",
-    life: 20,
+    life: 21,
     attack: 2,
-    defense: 1,
+    defense: 2,
     color: "blue"
   },
   {
@@ -77,7 +77,7 @@ const COMMANDERS = [
     name: "VEXIA",
     life: 20,
     attack: 2,
-    defense: 1,
+    defense: 2,
     color: "black"
   },
 
@@ -86,7 +86,7 @@ const COMMANDERS = [
     name: "MORVETH",
     life: 24,
     attack: 2,
-    defense: 1,
+    defense: 2,
     color: "black"
   }
 ];
