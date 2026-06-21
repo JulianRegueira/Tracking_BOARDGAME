@@ -412,22 +412,33 @@ function renderDamagePreview(attacker, players) {
   const rows = opponents.map((defender) => {
     const defenderCommander = getCommander(defender.commanderId);
     const defenderName = defender.name || defenderCommander?.name || "Jugador";
+
+    const defenderLife = Number(defender.life ?? 0);
     const damage = calculateDamage(attacker, defender);
+    const remainingLife = Math.max(0, defenderLife - damage);
+
     const damageText = damage > 0
       ? `<strong class="damage-value">${damage} daño</strong>`
-      : `<span class="no-damage">No realiza Daño</span>`;
+      : `<span class="no-damage">No realiza daño</span>`;
 
     return `
       <div class="damage-row">
-        <span class="damage-row-name">${escapeHtml(defenderName)}</span>
-        ${damageText}
+        <div class="damage-row-player">
+          <span class="damage-row-name">${escapeHtml(defenderName)}</span>
+          <span class="damage-row-life">Vida actual: ${defenderLife}</span>
+        </div>
+
+        <div class="damage-row-result">
+          ${damageText}
+          <span class="remaining-life">Quedaría en ${remainingLife} vida</span>
+        </div>
       </div>
     `;
   }).join("");
 
   return `
     <div class="damage-preview">
-      <div class="damage-preview-title">Daño potencial</div>
+      <div class="damage-preview-title">Daño potencial vs vida</div>
       <div class="damage-list">${rows}</div>
     </div>
   `;
