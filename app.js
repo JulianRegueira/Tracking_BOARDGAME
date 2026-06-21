@@ -403,7 +403,7 @@ function renderDamagePreview(attacker, players) {
   if (!opponents.length) {
     return `
       <div class="damage-preview">
-        <div class="damage-preview-title">Daño potencial</div>
+        <div class="damage-preview-title">Daño / Vida actual</div>
         <div class="damage-empty">No hay otros comandantes en mesa.</div>
       </div>
     `;
@@ -415,22 +415,21 @@ function renderDamagePreview(attacker, players) {
 
     const defenderLife = Number(defender.life ?? 0);
     const damage = calculateDamage(attacker, defender);
-    const remainingLife = Math.max(0, defenderLife - damage);
 
     const damageText = damage > 0
-      ? `<strong class="damage-value">${damage} daño</strong>`
-      : `<span class="no-damage">No realiza daño</span>`;
+      ? `<strong class="damage-value">${damage}</strong>`
+      : `<span class="no-damage">0</span>`;
 
     return `
       <div class="damage-row">
-        <div class="damage-row-player">
-          <span class="damage-row-name">${escapeHtml(defenderName)}</span>
-          <span class="damage-row-life">Vida actual: ${defenderLife}</span>
-        </div>
+        <span class="damage-row-name">${escapeHtml(defenderName)}</span>
 
-        <div class="damage-row-result">
+        <div class="damage-row-values">
+          <span class="damage-label">DAÑO</span>
           ${damageText}
-          <span class="remaining-life">Quedaría en ${remainingLife} vida</span>
+          <span class="damage-separator">/</span>
+          <span class="life-label">VIDA</span>
+          <strong class="life-value">${defenderLife}</strong>
         </div>
       </div>
     `;
@@ -438,7 +437,7 @@ function renderDamagePreview(attacker, players) {
 
   return `
     <div class="damage-preview">
-      <div class="damage-preview-title">Daño potencial vs vida</div>
+      <div class="damage-preview-title">Daño / Vida actual</div>
       <div class="damage-list">${rows}</div>
     </div>
   `;
