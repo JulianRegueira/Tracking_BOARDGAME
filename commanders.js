@@ -41,7 +41,7 @@ const COMMANDERS = [
     id: "5",
     name: "MIRELLA",
     life: 20,
-    attack: 2,
+    attack: 3,
     defense: 2,
     color: "yellow"
   },
